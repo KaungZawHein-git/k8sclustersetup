@@ -1,0 +1,5 @@
+[master]
+master ansible_host=3.80.186.105 ansible_ssh_user=ubuntu ansible_ssh_private_key_file=/mnt/c/Users/KaungZawHein/Downloads/vmnewkey.pem
+
+[workers]
+worker ansible_host=44.200.144.153 ansible_ssh_user=ubuntu ansible_ssh_private_key_file=/mnt/c/Users/KaungZawHein/Downloads/vmnewkey.pem

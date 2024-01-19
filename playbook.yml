@@ -1,0 +1,64 @@
+---
+- name: Kubernetes Cluster Setup
+  hosts: all
+  become: true
+  vars:
+    kube_config_dir: "{{ lookup('env', 'HOME') }}/.kube"
+
+  tasks:
+    - name: Clone k8sclustersetup repository
+      git:
+        repo: "https://github.com/KaungZawHein-git/k8sclustersetup.git"
+        dest: "{{ lookup('env', 'HOME') }}/k8sclustersetup"
+       #become_user: "{{ ansible_ssh_user }}"
+
+    - name: Run common.sh on master and worker nodes
+      shell: "{{ item }}"
+      #become_user: "{{ ansible_ssh_user }}"
+      with_items:
+        - "{{ lookup('env', 'HOME') }}/k8sclustersetup/scripts/common.sh"
+
+    - name: Run master.sh on master node
+      shell: "{{ item }}"
+       #become_user: "{{ ansible_ssh_user }}"
+      when: "'master' in inventory_hostname"
+      with_items:
+        "{{ lookup('env', 'HOME') }}/k8sclustersetup/scripts/master.sh"
+
+    - name: Create kubeconfig directory
+      file:
+        path: "{{ kube_config_dir }}"
+        state: directory
+      when: "'master' in inventory_hostname"
+       #become_user: "{{ ansible_ssh_user }}"
+
+    - name: Copy kubeconfig file to user's home directory
+      ansible.builtin.shell:
+        cmd: "yes | cp -i /etc/kubernetes/admin.conf {{ kube_config_dir }}/config"
+      #become: yes
+      when: "'master' in inventory_hostname"
+   #become_user: "{{ ansible_ssh_user }}"
+
+    - name: Change ownership of kubeconfig file
+      command: "sudo chown root:root {{ kube_config_dir }}/config"
+      #become_user: "{{ ansible_ssh_user }}"
+      when: "'master' in inventory_hostname"
+
+    - name: Set KUBECONFIG environment variable
+      lineinfile:
+        path: "{{ lookup('env', 'HOME') }}/.bashrc"
+        line: "export KUBECONFIG=/etc/kubernetes/admin.conf"
+       #become_user: "{{ ansible_ssh_user }}"
+      when: "'master' in inventory_hostname"
+
+    - name: Get kubeadm join command from master node
+      command: "kubeadm token create --print-join-command"
+      register: kubeadm_join_command
+      #become_user: "{{ ansible_ssh_user }}"
+      when: "'master' in inventory_hostname"
+
+    - name: Join worker nodes to the cluster
+      command: "{{ hostvars[groups['master'][0]]['kubeadm_join_command'].stdout }}"
+      #become_user: "{{ ansible_ssh_user }}"
+      when: "'worker' in inventory_hostname"
+
